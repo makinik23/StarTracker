@@ -1,0 +1,103 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "star-tracker"
+version = "0.1.0"
+description = "Star tracker pipeline: moment-based + PSF fitting + HYG-based catalog"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Julian Kaźmierski" }]
+dependencies = [
+  "numpy",
+  "pandas",
+  "scipy",
+  "matplotlib",
+  "opencv-python",
+  "pillow",
+]
+
+[tool.hatch.envs.default]
+python = "3.11"
+dependencies = [
+  # testy
+  "pytest",
+  "pytest-cov",
+  # analiza statyczna
+  "ruff>=0.6",
+  "mypy>=1.10",
+  # (opcjonalnie) typy do kilku pakietów
+  "types-setuptools; python_version<'3.12'",
+]
+
+[tool.hatch.envs.default.scripts]
+unit-test = "pytest -q"
+test-cov = "pytest --cov=star_tracker --cov-report=term-missing --cov-report=xml"
+lint = "ruff check ."
+format = "ruff format ."
+type-check = "mypy star_tracker unit_tests"
+all = [
+  "ruff check .",
+  "mypy star_tracker unit_tests",
+  "pytest -q",
+]
+
+[tool.hatch.envs.ci]
+type = "virtual"
+python = "3.11"
+dependencies = [
+  "pytest", "pytest-cov",
+  "ruff>=0.6", "mypy>=1.10",
+  "numpy", "pandas", "scipy",
+]
+[tool.hatch.envs.ci.scripts]
+check = ["ruff check .", "mypy star_tracker unit_tests", "pytest -q"]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["unit_tests"]
+pythonpath = ["."]
+filterwarnings = [
+  "ignore::DeprecationWarning",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = [
+  "venv", ".venv", "out", "__pycache__",
+]
+
+lint.select = [
+  "F", "E", "W",        # Pyflakes/Pycodestyle
+  "I",                  # Import sorting
+  "UP",                 # Pyupgrade
+  "B",                  # Bugbear
+  "C90",                # mccabe (złożoność)
+  "N",                  # konwencje nazw
+]
+lint.ignore = [
+  "E203"
+]
+lint.per-file-ignores = {}
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_configs = true
+warn_return_any = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+ignore_missing_imports = true
+
+[tool.hatch.version]
+path = "star_tracker/__init__.py"
