@@ -38,7 +38,9 @@ def make_synthetic_starfield(H: int = 512, W: int = 512, seed: int = 7) -> np.nd
         img += add_gauss(cx, cy, 1.2*length, 1.5, theta, 180)
 
     img = np.clip(img, 0, 255).astype(np.uint8)
+
     return img
+
 
 def preprocess(gray: np.ndarray,
                use_clahe: bool = True,
@@ -46,12 +48,29 @@ def preprocess(gray: np.ndarray,
                thresh_mode: str = "adaptive",
                block_size: int = 51,
                C: int = -3) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Preprocess image: CLAHE, Gaussian blur, thresholding, morphological cleaning.
+
+    Args:
+        gray (np.ndarray): Grayscale image.
+        use_clahe (bool): Whether to apply CLAHE.
+        blur_ksize (int): Kernel size for Gaussian blur.
+        thresh_mode (str): "adaptive" or "otsu" thresholding.
+        block_size (int): Block size for adaptive thresholding.
+        C (int): Constant subtracted from mean in adaptive thresholding.
+    
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: Processed grayscale image and binary mask.
+    """
     img = gray
+
     if use_clahe:
         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         img = clahe.apply(img)
+
     if blur_ksize > 1:
         img = cv2.GaussianBlur(img, (blur_ksize, blur_ksize), 0)
+
     if thresh_mode == "adaptive":
         mask = cv2.adaptiveThreshold(
             img, 255,
@@ -69,8 +88,12 @@ def preprocess(gray: np.ndarray,
     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN,  k3, iterations=1)
     return img, mask
 
+
 @dataclass
 class Candidate:
+    """
+    Candidate star detection after connected components.
+    """
     label: int
     bbox: Tuple[int,int,int,int] 
     area: int
@@ -83,6 +106,18 @@ class Candidate:
 
 def find_candidates(gray: np.ndarray, mask: np.ndarray,
                     min_area: int = 10, min_mass: float = 600.0) -> List[Candidate]:
+    """
+    Find candidate stars using connected components.
+
+    Args:
+        gray (np.ndarray): Grayscale image.
+        mask (np.ndarray): Binary mask of potential stars.
+        min_area (int): Minimum area of connected component to be considered.
+        min_mass (float): Minimum mass (sum of pixel values) to be considered.
+
+    Returns:
+        List[Candidate]: List of candidate star detections.
+    """
     n_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(mask, connectivity=8)
     H, W = gray.shape
     out: List[Candidate] = []
@@ -103,18 +138,21 @@ def find_candidates(gray: np.ndarray, mask: np.ndarray,
 
 def gauss2d_rot(coords, A, x0, y0, sx, sy, theta, offset):
     """
-    Eliptyczny Gauss 2D z rotacją + offset tła.
-    coords = (X, Y) – siatki pikseli (float).
+    Eliptic 2D Gaussian with rotation.
     """
     X, Y = coords
     ct, st = np.cos(theta), np.sin(theta)
     xr =  (X - x0)*ct + (Y - y0)*st
     yr = -(X - x0)*st + (Y - y0)*ct
     G = offset + A*np.exp(-(xr**2/(2*sx**2) + yr**2/(2*sy**2)))
+
     return G.ravel()
 
 @dataclass
 class FitResult:
+    """
+    Result of PSF fitting on a candidate.
+    """
     label: int
     cx: float
     cy: float
@@ -130,7 +168,16 @@ class FitResult:
     m00: float
 
 def ring_median(arr: np.ndarray, ring: int = 1) -> float:
-    """Mediana piks. z obwódki ROI (prosty estymator tła)."""
+    """
+    Compute median of the ring pixels around the core.
+
+    Args:
+        arr (np.ndarray): 2D array.
+        ring (int): Width of the ring to consider.
+    
+    Returns:
+        float: Median value of the ring pixels.
+    """
     h, w = arr.shape
     if min(h,w) < 2*ring+1:
         return float(np.median(arr))
@@ -144,8 +191,14 @@ def ring_median(arr: np.ndarray, ring: int = 1) -> float:
 
 def fit_psf_on_candidate(c: Candidate, roi_half: int = 6) -> Optional[FitResult]:
     """
-    Wytnij małe ROI wokół centroidu CC i dopasuj eliptycznego Gaussa.
-    Zwraca FitResult lub None jeśli fit się nie powiedzie.
+    Extract ROI around candidate and fit 2D Gaussian PSF.
+
+    Args:
+        c (Candidate): Candidate star detection.
+        roi_half (int): Half-size of ROI for fitting.
+    
+    Returns:
+        Optional[FitResult]: Fitting result or None if fitting failed.
     """
     H, W = c.roi_gray.shape
     cx0 = np.clip(int(round(c.centroid[0] - c.x0)), 0, W-1)
@@ -193,12 +246,10 @@ def fit_psf_on_candidate(c: Candidate, roi_half: int = 6) -> Optional[FitResult]
         sig = np.sqrt(np.clip(np.diag(pcov), 0, np.inf))
     sig_x0, sig_y0 = float(sig[1]), float(sig[2])
 
-    # redukowane chi^2 (ocena jakości dopasowania)
     resid = I.ravel() - gauss2d_rot((Xloc, Yloc), *popt)
     dof = I.size - len(popt)
     red_chi2 = float((resid @ resid) / max(dof, 1))
 
-    # współrzędne globalne
     cx = c.x0 + x0 + x0_loc
     cy = c.y0 + y0 + y0_loc
 
@@ -226,6 +277,7 @@ def draw_results(gray: np.ndarray, fits: List[FitResult], out_path: str) -> None
     fig.savefig(out_path, dpi=150)
     plt.close(fig)
 
+
 def save_csv(fits: List[FitResult], path: str) -> None:
     with open(path, "w", newline="") as f:
         w = csv.writer(f)
@@ -233,7 +285,7 @@ def save_csv(fits: List[FitResult], path: str) -> None:
         for fr in fits:
             w.writerow([fr.label, fr.cx, fr.cy, fr.sx, fr.sy, fr.theta, fr.A, fr.offset, fr.sig_cx, fr.sig_cy, fr.red_chi2, fr.area, fr.m00])
 
-# =============== 4) Main ===============
+
 def main(image_path: Optional[str],
          use_clahe: bool,
          thresh_mode: str,
@@ -246,7 +298,7 @@ def main(image_path: Optional[str],
     if image_path:
         gray = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
         if gray is None:
-            raise SystemExit(f"Nie można wczytać obrazu: {image_path}")
+            raise SystemExit(f"Cannot read image: {image_path}")
     else:
         gray = make_synthetic_starfield()
         cv2.imwrite("synthetic_starfield.png", gray)
@@ -287,6 +339,7 @@ if __name__ == "__main__":
 
     if args.block_size % 2 == 0:
         args.block_size += 1
+
     if args.blur % 2 == 0:
         args.blur += 1
 

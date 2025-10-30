@@ -1,5 +1,5 @@
 venv/
-*.txt
+notes.txt
 __pycache__/
 .pytest_cache/
 *.pyc

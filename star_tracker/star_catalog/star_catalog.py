@@ -1,18 +1,8 @@
-"""
-Star catalog loader and utilities for the HYG Database (v3).
-
-Provides:
-- Loading and preprocessing of star catalog (RA, Dec, magnitude)
-- Conversion to unit vectors in ICRF
-- Filtering by magnitude
-- Angular distance search (cone search)
-"""
-
 from __future__ import annotations
 import pandas as pd
 import numpy as np
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Tuple
 
 
 @dataclass
@@ -26,6 +16,15 @@ class Star:
 
 
 class StarCatalog:
+    """
+    Star catalog loader and utilities for the HYG Database (v3).
+
+    Provides:
+    - Loading and preprocessing of star catalog (RA, Dec, magnitude)
+    - Conversion to unit vectors in ICRF
+    - Filtering by magnitude
+    - Angular distance search (cone search)
+    """
     def __init__(self, path: str):
         """Load the HYG catalog from CSV."""
         self.df = pd.read_csv(path)
@@ -43,11 +42,13 @@ class StarCatalog:
             y = np.cos(dec) * np.sin(ra)
             z = np.sin(dec)
             self._vectors = np.column_stack((x, y, z))
+
         return self._vectors
 
     def filtered(self, max_mag: float = 6.0) -> Tuple[np.ndarray, np.ndarray]:
         """Return unit vectors and magnitudes for stars brighter than given magnitude."""
         mask = self.df["mag"] <= max_mag
+
         return self.vectors[mask], self.df.loc[mask, "mag"].to_numpy()
 
     def cone_search(
@@ -63,6 +64,7 @@ class StarCatalog:
         mask = dots >= cos_ang
         res = self.df.loc[mask, ["id", "proper", "ra", "dec", "mag"]].copy()
         res["angle_deg"] = np.rad2deg(np.arccos(np.clip(dots[mask], -1, 1)))
+
         return res.sort_values("angle_deg")
 
     def as_stars(self, max_mag: float = 6.0) -> list[Star]:
@@ -74,6 +76,7 @@ class StarCatalog:
         ids = self.df.loc[mask, "id"].to_numpy(dtype=int)
         names = self.df.loc[mask, "proper"].fillna("").to_numpy()
         vecs = self.vectors[mask]
+
         return [
             Star(int(i), str(n), float(r), float(d), float(m), v)
             for i, n, r, d, m, v in zip(ids, names, ra, dec, mag, vecs)
