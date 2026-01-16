@@ -6,7 +6,7 @@
 
 ---
 
-## ✨ Highlights
+## Highlights
 
 * **Star detection via image moments**: centroid, total flux, second moments, ellipticity.
 * **Optional PSF fitting**: refines sub‑pixel centroids and FWHM; configurable.
@@ -18,7 +18,7 @@
 
 ---
 
-## 🗺️ Project goals
+## Project goals
 
 1. Detect stars reliably from raw frames (simulated or real sensor).
 2. Produce precise centroids (moment → PSF refinement) with uncertainty estimates.
@@ -27,15 +27,15 @@
 
 ---
 
-## 📦 Installation
+## Installation
 
-### 🐍 Requirements
+### Requirements
 
 - **Python ≥ 3.10**
 - **Hatch ≥ 1.10**  
   *(Install globally once: `pip install hatch`)*
 
-### 🚀 Setup
+### Setup
 
 ```bash
 # 1. Clone the repository
@@ -51,7 +51,7 @@ hatch run unit-test
 
 ---
 
-## 🧪 Development utilities
+## Development utilities
 
 The following commands are predefined in the Hatch environment  
 (`pyproject.toml → [tool.hatch.envs.default.scripts]`):
@@ -67,7 +67,7 @@ The following commands are predefined in the Hatch environment
 
 ---
 
-## 🧭 Roadmap
+## Roadmap
 
 - [x] Image moment analysis  
 - [x] PSF fitting  
